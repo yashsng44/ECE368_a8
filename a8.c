@@ -6,18 +6,64 @@
 #include "a8.h"
 #define INF 2147483647
 
-//wip
-// void free_adj_list(int * adj_list, num_nodes) {
-//     for ()
+// int isEmpty(Queue* q)
+// {
+
+//     // If the front and rear are null, then the queue is
+//     // empty, otherwise it's not
+//     if (q->front == NULL && q->rear == NULL) {
+//         return 1;
+//     }
+//     return 0;
 // }
 
-void enQ (struct Queue * curr_values, Node * new_value) {
+// void make_node (int data) {
+//     Node * new_node = malloc(sizeof(Node));
+//     new_node->name = new_data;
+//     new_node->next = NULL;
+//     return new_node;
+// }
 
-}
+// void enQ (struct Queue * q, int new_value) {
+//     Node * new = make_node(new_value);
+//     if(q->rear = NULL) {
+//         q->front = q->rear = new_node;
+//         return;
+//     }
+//     q->rear->next = new_node;
+//     q->rear = new_node;
+// }
 
-void deQ (struct Queue * curr_values) {
+// int deQ (struct Queue * q) {
+//     // If queue is empty, return
+//     if (isEmpty(q)) {
+//         printf("Queue Underflow\n");
+//         return;
+//     }
 
-}
+//     // Store previous front and move front one node
+//     // ahead
+//     Node* temp = q->front;
+//     int val = temp->name;
+//     q->front = q->front->next;
+
+//     // If front becomes null, then change rear also
+//     // to null
+//     if (q->front == NULL)
+//         q->rear = NULL;
+
+//     // Deallocate memory of the old front node
+//     free(temp);
+//     return val;
+// }
+
+// struct Queue * createQueue()
+// {
+//     Queue* q = (Queue*)malloc(sizeof(Queue));
+//     q->front = q->rear = NULL;
+//     return q;
+// }
+
 
 void downward_heapify(int * pq, int size, int target) { // size in this contex is that of the array
     /// everytime we are getting rid of the root node, i.e. shortest targeta
@@ -38,22 +84,6 @@ void downward_heapify(int * pq, int size, int target) { // size in this contex i
     pq[target] = temp; 
 }
 
-// void djikstra(int * pq, int * distance, int w, int s) {
-//     // initialization done outside of the function...is this okay?
-//     // should be done inside? it does not matter. 
-    
-//     while (sizeof(pq) > 0) { // equivalent of not being empty...
-//     u = extract_min(pq, size);
-
-//     // logic to detetct when we are at the target node; everytime this happens we want to save the current log of previus visisted nodes
-//     // use a stack?
-//     // previous.push(u) after every iteration
-//     // if u == target
-//     // stack.pop(empty the stack for the stored nodes , or checkout the current previous list...)
-//     } 
-
-    
-// }
 int extract_min(int * pq, int * size) {
     int min = pq[0]; // we know that the min value is always in the root, heap property
     pq[0] = pq[*size - 1]; // move to the root....
@@ -67,15 +97,17 @@ void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int v
     //intializing the arrays to use
     int * pq = calloc(vertices, sizeof(int)); // intialize everything with 0
     int * distance = malloc(vertices*sizeof(int)); // shortest current index 
+    int * prev = malloc(vertices*sizeof(int));
     memset(distance, INF, vertices*sizeof(int)); // initialize the distance to the maximum integer signed value 
     int size = vertices;
     pq[source] = 0; // initalize the distance from the source to be the smallest, set to 0...
     downward_heapify(pq, size, source); // perform downward heapify for initialization, brings the node assigned as the source, distance 0, to the top.
+    
+    // assigment specific 
     int track_depth = 0;
-    // example: s = 0, t = 3 
-    // the distance list changes similarly?
     int d_prev_target_match = INF; // tracks the last distance value when there is a match from the source -> target
     int u = 0;
+    Queue * track_nodes = createQueue();
 
     while (sizeof(pq) > 0) { // equivalent of not being empty...
     u = extract_min(pq, &size);
@@ -93,15 +125,24 @@ void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int v
         int d_curr_target = distance[v];
         int curr_weight = adj_list[u].Edges[v].weights[weight_index];
         int d_st = curr_weight + d_curr_source; 
+ 
 
         if ((v >= 0 && v <= (vertices - 1))&&(d_curr_target > d_st)) { // just has to be within the range of values..it seems like they are ordered!
             d_curr_target = d_st;
             // pred[v] = u;
         }
 
-        // if (v == target) {
-        //     d_prev_target_match = d_curr_target; // the most recently processed node was that == target, so we can save the depth so far!      
+        // enQ(track_nodes, v); // enqueue the vertex just visited and adjusted 
 
+        // if (v == target) {
+        //     if (d_prev_target_match > d_curr_target) { // if the current calculated distance to the target is less than 
+        //         // dequeue until the we get to the source....fuck the rest tbh
+        //      int k;
+        //      while(!isEmpty(track_nodes) && k != source) { // while the its not empty, dequeue!
+        //         k = deQ(track_nodes); // dequeued value
+        //      }
+        //      d_prev_target_match  = d_curr_target; // always looking for the smallest distance!
+        //     } // the most recently processed node was that == target, so we can save the depth so far!      
         // }
 
     }
