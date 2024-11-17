@@ -17,14 +17,14 @@ typedef struct adj_Edges {
     int * weights;
 } Edges;
 
-typedef struct Queue {
-    Node * front, *rear;
-} 
+// typedef struct Queue {
+//     Node * front, *rear;
+// } 
 
-typedef struct Node {
-    int name;
-    struct Node * next;
-}
+// typedef struct Node {
+//     int name;
+//     struct Node * next;
+// }
 
 struct adj_Vertex * build_adjacency_list(char * filename, int * vertices, int * period);
 void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int vertices, int period);

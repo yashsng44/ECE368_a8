@@ -98,56 +98,46 @@ void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int v
     int * pq = calloc(vertices, sizeof(int)); // intialize everything with 0
     int * distance = malloc(vertices*sizeof(int)); // shortest current index 
     int * prev = malloc(vertices*sizeof(int));
-    memset(distance, INF, vertices*sizeof(int)); // initialize the distance to the maximum integer signed value 
+    // memset(prev, NULL, vertices*sizeof(int));
+    for (int m = 0; m < sizeof(distance); m++) {
+        distance[m] = 2147483646;
+    }
+    //memset(distance, 2147483646, vertices*sizeof(int)); // initialize the distance to the maximum integer signed value 
     int size = vertices;
-    pq[source] = 0; // initalize the distance from the source to be the smallest, set to 0...
+    distance[source] = 0; // initalize the distance from the source to be the smallest, set to 0...
     downward_heapify(pq, size, source); // perform downward heapify for initialization, brings the node assigned as the source, distance 0, to the top.
     
     // assigment specific 
     int track_depth = 0;
     int d_prev_target_match = INF; // tracks the last distance value when there is a match from the source -> target
     int u = 0;
-    Queue * track_nodes = createQueue();
 
     while (sizeof(pq) > 0) { // equivalent of not being empty...
     u = extract_min(pq, &size);
+
     int size_of_u = sizeof(adj_list[u].Edges);
-    track_depth++; // everytime  I readjust my priority queue, I'm somewhere deeper in my graph
+    // everytime  I readjust my priority queue, I'm somewhere deeper in my graph
 
     // WHEN IT IS THE TARGET!
     // u contains the name of the node of interest, at pq[0]. it is NOT 0.
-    for (int i = 0; i < size_of_u; i++) {
+    for (int i = 0; i < size_of_u; i++) { // we dont check the node here. 
         int v = adj_list[u].Edges[i].name; // redefine the vertex it is connected to
 
-        // c: possibly improve the time by not checking the rest of the list if i found my target already, yk...! acc o becuase the list wont be ordered so i cant like bench march it to a given index 
         int weight_index = track_depth % period;
         int d_curr_source = distance[u]; // this is the index we want? who gaf
         int d_curr_target = distance[v];
         int curr_weight = adj_list[u].Edges[v].weights[weight_index];
         int d_st = curr_weight + d_curr_source; 
  
-
         if ((v >= 0 && v <= (vertices - 1))&&(d_curr_target > d_st)) { // just has to be within the range of values..it seems like they are ordered!
             d_curr_target = d_st;
-            // pred[v] = u;
+            prev[v] = u;
         }
-
-        // enQ(track_nodes, v); // enqueue the vertex just visited and adjusted 
-
-        // if (v == target) {
-        //     if (d_prev_target_match > d_curr_target) { // if the current calculated distance to the target is less than 
-        //         // dequeue until the we get to the source....fuck the rest tbh
-        //      int k;
-        //      while(!isEmpty(track_nodes) && k != source) { // while the its not empty, dequeue!
-        //         k = deQ(track_nodes); // dequeued value
-        //      }
-        //      d_prev_target_match  = d_curr_target; // always looking for the smallest distance!
-        //     } // the most recently processed node was that == target, so we can save the depth so far!      
-        // }
-
     }
     }
-
+    
+    track_depth++;
+    printf("test out\n");
     return;
 }
 
