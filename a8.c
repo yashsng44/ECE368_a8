@@ -65,12 +65,13 @@
 // }
 
 
-void downward_heapify(int * pq, int size, int target) { // size in this contex is that of the array
+void downward_heapify(int * pq, int * distance, int size, int target) { // size in this contex is that of the array
     /// everytime we are getting rid of the root node, i.e. shortest targeta
     int temp = pq[target];  // target refers to the node of ineterest
+    int temp2 = distance[target]; // peform that same heapify on the distance array
     int j;
 
-    while((j = 2*target + 1 < size)) { // checking the indice to the left child                                    // if they are within array bounds, that is
+    while((j = (2*target + 1) < size)) { // checking the indice to the left child                                    // if they are within array bounds, that is
         if (j < size && pq[j] > pq[j+1]) {// if the variable is smalll and smaller than its right sibling
         j++;
         }
@@ -78,66 +79,74 @@ void downward_heapify(int * pq, int size, int target) { // size in this contex i
             break;
         }
         pq[target] = pq[j]; // perform the swap between the elements..
+        distance[target] = distance[j];
         target = j;
     }
 
+    distance[target] = temp2;
     pq[target] = temp; 
 }
 
-int extract_min(int * pq, int * size) {
+int extract_min(int * pq, int * distance, int * size) {
     int min = pq[0]; // we know that the min value is always in the root, heap property
     pq[0] = pq[*size - 1]; // move to the root....
-    *size--; // reduce the size
-    downward_heapify(pq, *size, 0); // the target to be removed is always zero. The goal is to adjust the rest of the mess below the root.
+    (*size)--; // reduce the size, i wonder why *size-- wasn't working
+    downward_heapify(pq, distance, *size, 0); // the target to be removed is always zero. The goal is to adjust the rest of the mess below the root.
     return min; // returns, again, the original index value of the list, , which is the root node as declared before the readjustment
 }
 
 void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int vertices, int period) {
 
     //intializing the arrays to use
-    int * pq = calloc(vertices, sizeof(int)); // intialize everything with 0
+    int * pq = malloc(vertices*sizeof(int)); // empty priority queue, a min heap 
     int * distance = malloc(vertices*sizeof(int)); // shortest current index 
     int * prev = malloc(vertices*sizeof(int));
-    // memset(prev, NULL, vertices*sizeof(int));
-    for (int m = 0; m < sizeof(distance); m++) {
-        distance[m] = 2147483646;
-    }
-    //memset(distance, 2147483646, vertices*sizeof(int)); // initialize the distance to the maximum integer signed value 
     int size = vertices;
-    distance[source] = 0; // initalize the distance from the source to be the smallest, set to 0...
-    downward_heapify(pq, size, source); // perform downward heapify for initialization, brings the node assigned as the source, distance 0, to the top.
+
     
+    for (int m = 0; m < size; m++) {
+        distance[m] = 2147483646;
+        prev[m] = 0;
+        pq[m] = m; // populate pq with the vertices 
+    }
+    
+    distance[source] = 0; // initalize the distance from the source to be the smallest, set to 0...
+    
+    for (int n = (size/2) - 1; n >= 0; n--){
+    downward_heapify(pq, distance, size, source); // perform downward heapify for initialization, brings the node assigned as the source, distance 0, to the top.
+    }
+
     // assigment specific 
     int track_depth = 0;
-    int d_prev_target_match = INF; // tracks the last distance value when there is a match from the source -> target
-    int u = 0;
 
-    while (sizeof(pq) > 0) { // equivalent of not being empty...
-    u = extract_min(pq, &size);
+    while (size > 0) { // equivalent of not being empty...
+        int u = extract_min(pq, distance, &size);
 
-    int size_of_u = sizeof(adj_list[u].Edges);
-    // everytime  I readjust my priority queue, I'm somewhere deeper in my graph
+        struct adj_Edges *edges = adj_list[u].Edges; // get a copy of the edges adjacency list 
+        int edge_count = adj_list[u].edge_count; // get a copy of the count 
+        // everytime  I readjust my priority queue, I'm somewhere deeper in my graph
 
-    // WHEN IT IS THE TARGET!
-    // u contains the name of the node of interest, at pq[0]. it is NOT 0.
-    for (int i = 0; i < size_of_u; i++) { // we dont check the node here. 
-        int v = adj_list[u].Edges[i].name; // redefine the vertex it is connected to
-
-        int weight_index = track_depth % period;
-        int d_curr_source = distance[u]; // this is the index we want? who gaf
-        int d_curr_target = distance[v];
-        int curr_weight = adj_list[u].Edges[v].weights[weight_index];
-        int d_st = curr_weight + d_curr_source; 
- 
-        if ((v >= 0 && v <= (vertices - 1))&&(d_curr_target > d_st)) { // just has to be within the range of values..it seems like they are ordered!
-            d_curr_target = d_st;
-            prev[v] = u;
+        // u contains the name of the node of interest, at pq[0]. it is NOT 0.
+        for (int i = 0; i < edge_count; i++) { // we dont check the node here. 
+            int v = edges[i].name; // redefine the vertex it is connected to 
+            int weight_index = track_depth % period;
+            int d_st = distance[u] + edges[i].weights[weight_index]; 
+    
+            if (distance[v] > d_st) { // just has to be within the range of values..it seems like they are ordered!
+                distance[v] = d_st; // replacing the distance on that index with this 
+                prev[v] = u; // we just keep track of the name of the previous index through this
+                // FORGOT TO UPDATE THE PQ AFTER THIS!
+                for (int j = 0; j < size; j++) {
+                    if (pq[j] == v) {
+                        downward_heapify(pq, distance, size, j);
+                        break;
+                }
+                }
+            }
         }
-    }
     }
     
     track_depth++;
-    printf("test out\n");
     return;
 }
 

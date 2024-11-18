@@ -9,6 +9,7 @@
 // adjacency list nodes 
 typedef struct adj_Vertex {
     int name;
+    int edge_count;
     struct adj_Edges * Edges;
 } Vertex;
 
