@@ -69,39 +69,42 @@ ensure that the heap property holds true for the ENTIRE PQ:
 for example: after init: pq = [INF, INF, 0, INF] -> [0, INF, INF, INF] (as we want, otherwise the root node would not contain the minimum value)
 */
 
-
-void downward_heapify(int * pq, int size, int target) { // size in this contex is that of the array
-    /// everytime we are getting rid of the root node, i.e. shortest targeta
-    int temp = pq[target];  // target refers to the node of ineterest
-    //int temp2 = distance[target]; // peform that same heapify on the distance array
+void downward_heapify(int *pq, int *d, int size, int target) {
+    int vertices = 4;
+    int temp = pq[target];       // Store the current value
+    int temp_d = d[temp];        // Get corresponding distance
     int j;
 
-    while((j = (2*target + 1) <= size)) { // checking the indice to the left child                                    // if they are within array bounds, that is
-        j = (2*target+1); // checking the left child 
+    while ((j = 2 * target + 1) < size) {  // Check if the left child exists
+        if (j + 1 < size && d[pq[j]] > d[pq[j + 1]]) {
+            j++;  // Move to the right child if it's smaller
+        }
 
-        if (j < size && pq[j] > pq[j+1]) {// if the variable is smalll and smaller than its right sibling
-        j++;
+        if (temp_d <= d[pq[j]]) {
+            break;  // If current is smaller than the smallest child, stop
         }
-        if (temp <= pq[j]) {// checking the target, if its smaller than the smallest child
-            break; // ex. 0 <= inf true
-        } else {
-        pq[target] = pq[j]; // p[0] = target var, node left or right... 
-        //distance[target] = distance[j];
+
+        pq[target] = pq[j];  // Move the smaller child up
         target = j;
-        }
     }
 
-   // distance[target] = temp2;
-    pq[target] = temp; 
+    pq[target] = temp;  // Place the original value in its correct position
+    for (int e = 0; e < size; e++) {
+        printf("pq[%d] = %d ", e, pq[e]);
+    }
+    printf("\n");
+    for (int e = 0; e < vertices; e++) {
+        printf("d[%d] = %d ", e, d[e]);
+    }
+    printf("\n");
 }
 
-int extract_min(int * pq, int * size) {
+
+int extract_min(int * pq, int * d, int * size) {
     int min = pq[0]; // we know that the min value is always in the root, heap property
-    //*d_u = distance[0];
     pq[0] = pq[*size - 1]; // move to the root... the distance should also be moved.
-    //distance[0] = distance[*size -1];
     (*size)--; // reduce the size, i wonder why *size-- wasn't working
-    downward_heapify(pq, *size, 0); // the target to be removed is always zero. The goal is to adjust the rest of the mess below the root.
+    downward_heapify(pq, d, *size, 0); // the target to be removed is always zero. The goal is to adjust the rest of the mess below the root.
     return min; // returns, again, the original index value of the list, , which is the root node as declared before the readjustment
 }
 
@@ -110,77 +113,68 @@ void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int v
     //intializing the arrays to use
     int * pq = malloc(vertices*sizeof(int)); // empty priority queue, a min heap 
     int * distance = malloc(vertices*sizeof(int)); // shortest current index 
+    int * prev = malloc(vertices*sizeof(int));
     int size = vertices;
-    int ** prev_array = malloc(sizeof(int*)); // create a previous 2d array with one row rn
+    int queue_size = vertices;
+    int ** prev_array = malloc(vertices*sizeof(int*));
 
     for (int m = 0; m < size; m++) {
         distance[m] = 1000000; // max out the distances 
+        prev[m] = size + 1; // the previous node list is also 0, iniaize with a value not possible in the previous: size + 1! the indices would be 0 1 2 3 anyway
         pq[m] = m; // populate pq with the vertices
         prev_array[m] = NULL; 
     }
     
     distance[source] = 0; // initially, the names match the index value so we can directly assign it like so
-
-    for (int n = (size/2) - 1; n >= 0; n--){
-    downward_heapify(pq, size, source); // perform downward heapify for initialization, brings the node assigned as the source, distance 0, to the top.
-    } // why do we perform the heapify this many times?
     
-    // heap brings the source node to the top!
-
+    for (int n = (size / 2) - 1; n >= 0; n--) {
+        downward_heapify(pq, distance, size, n);
+    }
+    
     int track_depth = 0;
-    int idx = 0;
 
     while (size > 0) { // equivalent of not being empty...
-        int u = extract_min(pq, &size); // this is the NAME of the minimum node.
+        int u = extract_min(pq, distance, &size); // this is the NAME of the minimum node.
         int d_u = distance[u]; // getting the name of the minimum value in the heap
         struct adj_Edges *edges = adj_list[u].Edges; // get a copy of the edges adjacency list , referrable by the name index 
-        int edge_count = adj_list[u].edge_count - 1; // get a copy of the count
+        int edge_count = adj_list[u].edge_count; // get a copy of the count
 
+        // u contains the name of the node of interest, at pq[0]. it is NOT 0.
         for (int i = 0; i < edge_count; i++) { // we dont check the node here. 
+
             int v = edges[i].name; // for the first input in the edges array, get its corresponding namee
             int weight_index = track_depth % period; // get the weight index
             int d_st = d_u + edges[i].weights[weight_index]; // 
             if (d_st == (1000000 + edges[i].weights[weight_index])) {
                 d_st = edges[i].weights[weight_index];
             }
-            //printf("calculated distance between <%d, %d> is: %d + %d = %d\n", u, v, distance[u], edges[i].weights[weight_index], d_st);
-
+            printf("calculated distance between <%d, %d> is: %d + %d = %d\n", u, v, distance[u], edges[i].weights[weight_index], d_st);
+            printf("versus: %d > %d ?\n", distance[v], d_st);
             if (distance[v] > d_st) { // just has to be within the range of values..it seems like they are ordered!
-                printf("replacing distance from %d, %d from %d to %d\n", u, v, distance[v], d_st);
                 distance[v] = d_st; // replacing the distance on that index with this 
-                
-                // if (idx == 0) {
-                // prev_array[idx] = malloc(sizeof(int)*vertices); // creating a new previous entry directly 
-                // for (int k = 0; k < vertices; k++) {
-                //     prev_array[idx][v] = u; // we just keep track of the name of the previous index through 
-                // }
-                // } else {
-                // prev_array = realloc(prev_array, (idx+1)*sizeof(int)); // realloc for another row
-                // prev_array[idx] = malloc(sizeof(int)*vertices);
-                // for (int k = 0; k < vertices; k++) {
-                //     prev_array[idx][v] = u; // we just keep track of the name of the previous index through 
-                // }
-                // }
-                // idx++;
+                prev[v] = u; // we just keep track of the name of the previous index through 
+                printf("prev[%d] = %d\n", v, prev[v]);
 
-                for (int j = 0; j < size; j++) {
-                    if (pq[j] == v) { // go through the pq, find the index with name of the node i want, downward heapify with one connected edge
-                        downward_heapify(pq, size, j); // adjust the standing in the heap of the newly readjusted value
-                        break;
-                    }
+                int k;
+                for (k = 0; k < size; k++) {
+                    if (pq[k] == v) break;// find the matching value in the priority queue 
+                }
+
+                while(k > 0) {
+                    k = (k-1) / 2;
+                    downward_heapify(pq, distance, size, k);
+                }
+
+                if (v == target) {
+                    printf("met target used track_depth: %d\n", track_depth);
+                    track_depth--;
                 }
                 }
             }
-        }
+        printf("used track_depth: %d\n", track_depth);
         track_depth++;
+        }
 
-
-    // for (int i = 0; i < vertices; i++) {
-    //     for(int j = 0; j < vertices; j++){
-    //         printf("%d ", prev_array[i][j]);
-    //     }
-    //     printf("\n");
-    // }
 
     return;
 }
