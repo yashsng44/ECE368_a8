@@ -4,65 +4,8 @@
 #include <stdbool.h>
 #include <math.h>
 #include "a8.h"
-#define INF 2147483647
+#define INF 1000000
 
-// int isEmpty(Queue* q)
-// {
-
-//     // If the front and rear are null, then the queue is
-//     // empty, otherwise it's not
-//     if (q->front == NULL && q->rear == NULL) {
-//         return 1;
-//     }
-//     return 0;
-// }
-
-// void make_node (int data) {
-//     Node * new_node = malloc(sizeof(Node));
-//     new_node->name = new_data;
-//     new_node->next = NULL;
-//     return new_node;
-// }
-
-// void enQ (struct Queue * q, int new_value) {
-//     Node * new = make_node(new_value);
-//     if(q->rear = NULL) {
-//         q->front = q->rear = new_node;
-//         return;
-//     }
-//     q->rear->next = new_node;
-//     q->rear = new_node;
-// }
-
-// int deQ (struct Queue * q) {
-//     // If queue is empty, return
-//     if (isEmpty(q)) {
-//         printf("Queue Underflow\n");
-//         return;
-//     }
-
-//     // Store previous front and move front one node
-//     // ahead
-//     Node* temp = q->front;
-//     int val = temp->name;
-//     q->front = q->front->next;
-
-//     // If front becomes null, then change rear also
-//     // to null
-//     if (q->front == NULL)
-//         q->rear = NULL;
-
-//     // Deallocate memory of the old front node
-//     free(temp);
-//     return val;
-// }
-
-// struct Queue * createQueue()
-// {
-//     Queue* q = (Queue*)malloc(sizeof(Queue));
-//     q->front = q->rear = NULL;
-//     return q;
-// }
 /*
 QUESTION: why downward heapify before the while loop?
 ensure that the heap property holds true for the ENTIRE PQ:
@@ -108,95 +51,91 @@ int extract_min(int * pq, int * d, int * size) {
     return min; // returns, again, the original index value of the list, , which is the root node as declared before the readjustment
 }
 
-void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int vertices, int period) {
-
-    //intializing the arrays to use
-    int * pq = malloc(vertices*sizeof(int)); // empty priority queue, a min heap 
-    int * distance = malloc(vertices*sizeof(int)); // shortest current index 
-    int * prev = malloc(vertices*sizeof(int));
-    int size = vertices;
-    int queue_size = vertices;
-    int ** prev_array = malloc(vertices*sizeof(int*));
-
-    for (int m = 0; m < size; m++) {
-        distance[m] = 1000000; // max out the distances 
-        prev[m] = size + 1; // the previous node list is also 0, iniaize with a value not possible in the previous: size + 1! the indices would be 0 1 2 3 anyway
-        pq[m] = m; // populate pq with the vertices
-        prev_array[m] = NULL; 
+void print_path(int *prev, int target) {
+    if (prev[target] == -1) { // Base case: no predecessor
+        printf("%d", target);
+        return;
     }
-    
-    distance[source] = 0; // initially, the names match the index value so we can directly assign it like so
-    
-    for (int n = (size / 2) - 1; n >= 0; n--) {
-        downward_heapify(pq, distance, size, n);
-    }
-    
-    int track_depth = 0;
-
-    while (size > 0) { // equivalent of not being empty...
-        int u = extract_min(pq, distance, &size); // this is the NAME of the minimum node.
-        int d_u = distance[u]; // getting the name of the minimum value in the heap
-        struct adj_Edges *edges = adj_list[u].Edges; // get a copy of the edges adjacency list , referrable by the name index 
-        int edge_count = adj_list[u].edge_count; // get a copy of the count
-
-        // u contains the name of the node of interest, at pq[0]. it is NOT 0.
-        for (int i = 0; i < edge_count; i++) { // we dont check the node here. 
-
-            int v = edges[i].name; // for the first input in the edges array, get its corresponding namee
-            int weight_index = track_depth % period; // get the weight index
-            int d_st = d_u + edges[i].weights[weight_index]; // 
-            if (d_st == (1000000 + edges[i].weights[weight_index])) {
-                d_st = edges[i].weights[weight_index];
-            }
-            printf("calculated distance between <%d, %d> is: %d + %d = %d\n", u, v, distance[u], edges[i].weights[weight_index], d_st);
-            printf("versus: %d > %d ?\n", distance[v], d_st);
-            if (distance[v] > d_st) { // just has to be within the range of values..it seems like they are ordered!
-                distance[v] = d_st; // replacing the distance on that index with this 
-                prev[v] = u; // we just keep track of the name of the previous index through 
-                printf("prev[%d] = %d\n", v, prev[v]);
-
-                int k;
-                for (k = 0; k < size; k++) {
-                    if (pq[k] == v) break;// find the matching value in the priority queue 
-                }
-
-                while(k > 0) {
-                    k = (k-1) / 2;
-                    downward_heapify(pq, distance, size, k);
-                }
-
-                if (v == target) {
-                    printf("met target used track_depth: %d\n", track_depth);
-                    track_depth--;
-                }
-                }
-            }
-        printf("used track_depth: %d\n", track_depth);
-        track_depth++;
-        }
-
-
-    return;
+    print_path(prev, prev[target]); // Recursive call to print the predecessor
+    printf(" -> %d", target); // Print the current node
 }
+
+void djk_mul_weights(Vertex *adj_list, int source, int target, int vertices, int period) {
+    int *pq = malloc(vertices * sizeof(int)); // Priority queue
+    int *distance = malloc(vertices * sizeof(int)); // Distance array
+    int *prev = malloc(vertices * sizeof(int)); // Previous node array
+    int *depth = malloc(vertices* (sizeof(int))); // idea: maintain a depth ARRAY of each node wrt to the source.
+    int size = vertices;
+
+    // Initialize arrays
+    for (int i = 0; i < vertices; i++) {
+        distance[i] = INF;
+        prev[i] = -1; // -1 indicates no predecessor
+        pq[i] = i; // Initialize priority queue with all vertices
+    }
+    distance[source] = 0;
+
+    // Build the initial heap
+    for (int i = size / 2 - 1; i >= 0; i--) {
+        downward_heapify(pq, distance, size, i);
+    }
+
+    // Process the priority queue 
+    // i dont need to keep track of *every* path but the the order in which i take them matters what weights i pick up
+    while (size > 0) {
+        int u = extract_min(pq, distance, &size); // Get vertex with minimum distance
+        if (u == target) break; // Stop if target is reached 
+
+        Edges *edges = adj_list[u].Edges;
+        int edge_count = adj_list[u].edge_count;
+        int unique_edges_count = edge_count / period;
+    
+        for (int i = 0; i < edge_count; 2*i) {
+            int v = edges[i].name; // Neighbor vertex
+            int edge_weight = edges[i].weight; // Weight of the edge
+
+            int alt_distance = distance[u] + edge_weight; // Calculate alternative distance
+            if (alt_distance < distance[v]) {
+                distance[v] = alt_distance;
+                
+                prev[v] = u; // Track the predecessor
+                // Re-heapify the affected vertex
+                for (int k = 0; k < size; k++) {
+                    if (pq[k] == v) {
+                        downward_heapify(pq, distance, size, k);
+                        break;
+                    }
+                }
+            }
+        }
+        }
+    }
+
+    // Print distances
+    printf("Distances from source %d:\n", source);
+    for (int i = 0; i < vertices; i++) {
+        printf("Vertex %d: %d\n", i, distance[i]);
+    }
+
+    // Print the path from source to target
+    printf("\nPath from %d to %d: ", source, target);
+    if (distance[target] == INF) {
+        printf("No path exists.\n");
+    } else {
+        print_path(prev, target); // Backtrack to reconstruct the path
+        printf("\n");
+    }
+
+    // Free allocated memory
+    free(pq);
+    free(distance);
+    free(prev);
+}
+
 
 
 struct adj_Vertex * build_adjacency_list(char * filename, int * vertices, int * period)
 {
-
-    // the input in the text file will be as such:
-    /*
-    4 2, V, N, he period of the edge weights 
-    0 1 5 1
-    1 2 6 2
-    0 2 3 4
-    2 3 4 15
-
-    The adjacency list will look like:
-    adj[0] = [1: (5,1), 2: (3,4)] // each vertex. edge, and weight will have their own array 
-    .
-    .
-    .
-    */
 
     FILE *fol;
     fol = fopen(filename, "r");
@@ -212,8 +151,7 @@ struct adj_Vertex * build_adjacency_list(char * filename, int * vertices, int * 
     *vertices = num_nodes;
     *period = num_weights;
 
-    // create my adj_list
-    struct adj_Vertex * adj_list = malloc(sizeof(struct adj_Vertex)*num_nodes);
+    struct adj_Vertex * adj_list = malloc(sizeof(struct adj_Vertex)*(num_nodes)); // adjacency list
 
     int number;
     int line_size = num_weights + 2;
@@ -225,29 +163,32 @@ struct adj_Vertex * build_adjacency_list(char * filename, int * vertices, int * 
         input_buffer[count_int] = number;
         count_int++;
         if (count_int == line_size) { // should I wait to input the values after?
-            int src = input_buffer[0];
+            int src = input_buffer[0]; 
             int dest = input_buffer[1];
 
-            connected_nodes_count[src]++; // increment the count of connected nodes 
+            connected_nodes_count[src]++; // increment the count of connected nodes pairs
 
             if (connected_nodes_count[input_buffer[0]] == 1) {
             adj_list[src].name = input_buffer[0]; // initialize the list name with the source, shouldn't matter but it doesn't hurt 
             }
 
             adj_list[src].Edges = realloc(
-                adj_list[src].Edges, connected_nodes_count[src] * sizeof(struct adj_Edges)
-                );// reallocate with more edges
+                adj_list[src].Edges, (connected_nodes_count[src]*num_weights) * sizeof(struct adj_Edges)
+                ); 
 
-            adj_list[src].edge_count++;
+            int new_count =  adj_list[src].edge_count + num_weights; // increase the count of edges connected to the node by 
+            int k = 0;
 
-            struct adj_Edges * new_edge = &adj_list[src].Edges[connected_nodes_count[src] - 1];
-            new_edge->name = dest;
-            new_edge->weights = malloc(num_weights * sizeof(int));
-
-            for (int i = 0; i < num_weights; i++) {
-                new_edge->weights[i] = input_buffer[i+2];
+            for (int i = adj_list[src].edge_count; i < new_count; i++) {
+                adj_list[src].Edges[i].name = dest;
+                adj_list[src].Edges[i].weight = input_buffer[k+2];
+                k++;
             }
 
+            // all the same edges anyway, name don't matter. First: sort by the name in an ascending order. Then, sort by the weights in an ascending order.
+            // so <0,1, 1> , <0,1,2>, <0,2,1>...etc
+            
+            adj_list[src].edge_count = new_count; // increase the count of edges connected to the node by 
             count_int = 0; // reset this hoe
         }
     }
