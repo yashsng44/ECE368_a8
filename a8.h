@@ -15,7 +15,8 @@ typedef struct adj_Vertex {
 
 typedef struct adj_Edges {
     int name;
-    int * weights;
+    int weight;
+    int depth_to;
 } Edges;
 
 // typedef struct Queue {
@@ -28,5 +29,5 @@ typedef struct adj_Edges {
 // }
 
 struct adj_Vertex * build_adjacency_list(char * filename, int * vertices, int * period);
-void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int vertices, int period);
+void djk_mul_weights(struct adj_Vertex * adj_list, int source, int target, int vertices);
 #endif
