@@ -15,14 +15,11 @@ if (argc != 2)
 int vertices, period, source, target = 0;
 struct adj_Vertex * adj_list = build_adjacency_list(argv[1], &vertices, &period); // build the graph
 
-
-
 while(scanf("\n%d %d", &source, &target) == 2) {
   djk_mul_weights(adj_list, source, target, vertices, period);
 }
 
-// free_adj_list(adj_list);
-
+free_adj_list(adj_list, vertices, period);
 return EXIT_SUCCESS;
 
 }
