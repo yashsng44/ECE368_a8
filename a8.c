@@ -116,6 +116,15 @@ void djk_mul_weights(struct adj_Vertex* adj_list, int source, int target, int ve
     bool* visited = calloc(vertices, sizeof(bool));
     PriorityQueue* pq = create_pq(vertices);
 
+    if (!distances || !parents || !visited || !pq) {
+        perror("Failed to allocate resources for shortest path calculation");
+        free(distances);
+        free(parents);
+        free(visited);
+        if (pq) free_pq(pq);
+        return;
+    }
+
     // Initialize arrays
     for (int i = 0; i < vertices; i++) {
         distances[i] = INF;
@@ -154,12 +163,20 @@ void djk_mul_weights(struct adj_Vertex* adj_list, int source, int target, int ve
     } else {
         // Reconstruct path
         int* path = malloc(vertices * sizeof(int));
+        if (!path) {
+            perror("Failed to allocate path array");
+            free(distances);
+            free(parents);
+            free(visited);
+            free_pq(pq);
+            return;
+        }
+
         int path_len = 0;
         for (int at = target; at != -1; at = parents[at]) {
             path[path_len++] = at;
         }
 
-        // Print path
         for (int i = path_len - 1; i >= 0; i--) {
             printf("%d ", path[i]);
         }
@@ -188,6 +205,12 @@ struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* peri
     *period = num_weights;
 
     struct adj_Vertex* adj_list = malloc(sizeof(struct adj_Vertex) * num_nodes);
+    if (!adj_list) {
+        perror("Failed to allocate adjacency list");
+        fclose(fol);
+        return NULL;
+    }
+
     for (int i = 0; i < num_nodes; i++) {
         adj_list[i].Edges = NULL;
         adj_list[i].edge_count = 0;
@@ -195,7 +218,21 @@ struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* peri
 
     int line_size = num_weights + 2;
     int* input_buffer = malloc(sizeof(int) * line_size);
+    if (!input_buffer) {
+        perror("Failed to allocate input buffer");
+        free(adj_list);
+        fclose(fol);
+        return NULL;
+    }
+
     int* connected_nodes_count = calloc(num_nodes, sizeof(int));
+    if (!connected_nodes_count) {
+        perror("Failed to allocate node counts");
+        free(input_buffer);
+        free(adj_list);
+        fclose(fol);
+        return NULL;
+    }
 
     int number, count_int = 0;
     while (fscanf(fol, "%d", &number) == 1) {
@@ -206,10 +243,26 @@ struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* peri
 
             connected_nodes_count[src]++;
             adj_list[src].Edges = realloc(adj_list[src].Edges, connected_nodes_count[src] * sizeof(struct adj_Edges));
+            if (!adj_list[src].Edges) {
+                perror("Failed to reallocate edges");
+                free(input_buffer);
+                free(connected_nodes_count);
+                free_adj_list(adj_list, num_nodes, num_weights);
+                fclose(fol);
+                return NULL;
+            }
 
             struct adj_Edges* new_edge = &adj_list[src].Edges[connected_nodes_count[src] - 1];
             new_edge->name = dest;
             new_edge->weights = malloc(sizeof(int) * num_weights);
+            if (!new_edge->weights) {
+                perror("Failed to allocate weights");
+                free(input_buffer);
+                free(connected_nodes_count);
+                free_adj_list(adj_list, num_nodes, num_weights);
+                fclose(fol);
+                return NULL;
+            }
 
             for (int i = 0; i < num_weights; i++) {
                 new_edge->weights[i] = input_buffer[2 + i];
