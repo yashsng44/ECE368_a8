@@ -6,7 +6,7 @@ VAL = valgrind --tool=memcheck --log-file=memcheck.txt --leak-check=full --show-
 SRCS = main.c a8.c
 OBJS = $(SRCS:%.c=%.o)
 
-a5: $(OBJS)
+a8: $(OBJS)
 	$(GCC) $(OBJS) -o a8 -lm
 
 .c.o:
