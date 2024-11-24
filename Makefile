@@ -1,7 +1,7 @@
 WARNING = -Wall -Wshadow --pedantic
 ERROR = -Wvla -Werror -Wno-unused-variable  -Wno-unused-value
 GCC = gcc -std=c99 -g $(WARNING) $(ERROR)
-VAL = valgrind --tool=memcheck --log-file=memcheck.txt --leak-check=full --show-leak-kinds=all --verbose
+VAL = valgrind --tool=memcheck --log-file=memcheck.txt --leak-check=full --show-leak-kinds=all --verbose --track-origins=yes
 
 SRCS = main.c a8.c
 OBJS = $(SRCS:%.c=%.o)
