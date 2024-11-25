@@ -161,6 +161,8 @@ void djk_mul_weights(struct adj_Vertex* adj_list, int source, int target, int ve
     if (distances[target] == INF) {
         printf("No path from %d to %d\n", source, target);
     } else {
+        printf("Shortest path from %d to %d with total cost %d:\n", source, target, distances[target]);
+
         // Reconstruct path
         int* path = malloc(vertices * sizeof(int));
         if (!path) {
@@ -191,6 +193,7 @@ void djk_mul_weights(struct adj_Vertex* adj_list, int source, int target, int ve
     free(visited);
     free_pq(pq);
 }
+
 
 struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* period) {
     FILE* fol = fopen(filename, "r");
