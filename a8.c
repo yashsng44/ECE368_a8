@@ -1,216 +1,152 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
 #include <limits.h>
 #include "a8.h"
+
 #define INF 1000000
+int source, target, N, V;
 
-void free_adj_list (struct adj_Vertex * adj_list, int vertices, int period) {
-    if (adj_list == NULL) {
+void downward_heapify(int *pq, int **d, int size, int ref, int time) {
+    if (size < 1) {
         return;
     }
-    
-        for (int i = 0; i < vertices; i++) {
-            int edges = adj_list[i].edge_count;
-            for (int j = 0; j < edges; j++) {
-                free(adj_list[i].Edges[j].weights);
-            } 
-            free(adj_list[i].Edges);
+
+    int temp = pq[ref];
+    int temp_d = d[temp][time];
+    int j;
+
+    while ((j = 2 * ref + 1) < size) {
+        if (j + 1 < size && d[pq[j]][time] > d[pq[j + 1]][time]) {
+            j++;
         }
+        if (temp_d <= d[pq[j]][time]) {
+            break;
+        }
+        pq[ref] = pq[j];
+        ref = j;
+    }
+
+    pq[ref] = temp;
+}
+
+void enQueue(int vertex, int time, int *pq, int *size, int **d) {
+    pq[(*size)++] = vertex;
+    downward_heapify(pq, d, *size, 0, time);
+}
+
+int extract_min(int *pq, int **d, int *size, int time) {
+    if (*size <= 0) {
+        return -1;
+    }
+    int min = pq[0]; // get root element
+    pq[0] = pq[--(*size)]; // move it to the "back" of the pq; pq[size] 
+    downward_heapify(pq, d, *size, 0, time); // call heapify... with the new size
+    return min; // return the minimum
+}
+
+void find_shortest_path(struct adj_Vertex *adj_list) {
+    if (source == target) {
+        printf("Shortest distance from %d to %d is: 0\n", source, target);
+        return;
+    }
+
+    // Priority queue and distance matrix
+    int *pq = malloc(V * sizeof(int));    // Priority queue
+    int **d = malloc(V * sizeof(int*));  // Distance matrix, V = number of rows = vertices.
+    int size = 0;
+
+    // Initialize distances
+    for (int i = 0; i < V; i++) {
+        d[i] = malloc(N * sizeof(int));
+        for (int j = 0; j < N + 1; j++) { // intialize N + 1 columns, where the first one is reserved for the source variable.
+            d[i][j] = INF;  // Initialize all distances to infinity
+        }
+    }
+
+    d[source][0] = 0; // enqueue the distance at time 0
+    pq[size++] = source;  // Enqueue the source, increase the queue size
+    int time = 0; //initialize the time...
+    while (size > -1) {
+        // printf("Distance matrix (d):\n");
+        // for (int i = 0; i < V; i++) {
+        //     printf("Vertex %d: ", i);
+        //     for (int j = 0; j < N + 1; j++) {
+        //         if (d[i][j] == INF) {
+        //             printf("INF ");  // Print 'INF' for infinity
+        //         } else {
+        //             printf("%d ", d[i][j]);  // Print the actual distance
+        //         }
+        //     }
+        //     printf("\n");  // Newline after each vertex
+        // }
+
+        int u = extract_min(pq, d, &size, time); // get pq, d, size, 0, 0);
+
+        int mod = time % N; // use the outter time tracker to check where we are externally.
+        int current_time = d[u][mod] + 1; // intial check, d[u][0], where the 0th column is reserved for the source array, + 1 = 1 d[u][1]
+        struct adj_Edges *edges = adj_list[u].Edges; // get the edges...
         
-    free(adj_list);
-}
-// Initialize priority queue
-static PriorityQueue* create_pq(int capacity) {
-    PriorityQueue* pq = malloc(sizeof(PriorityQueue));
-    pq->nodes = malloc(capacity * sizeof(QueueNode));
-    pq->positions = malloc(capacity * sizeof(int));
-    pq->size = 0;
-    pq->capacity = capacity;
-    memset(pq->positions, -1, capacity * sizeof(int));
-    return pq;
-}
+        for (int i = 0; i < adj_list[u].edge_count; i++) { // for all the edges....
+            int v = edges[i].name; // get the name
+            int offset = v / 2;
+            int weight = edges[offset + current_time - 1].weights;  // edges[1].weights at the current time..
+            time = current_time; // add the most recent time back to the outter counter 
+            int next_time;
+            if (time == N) {
+                next_time = time; // i want to maintain the said next_time
+            } else {
+                next_time = (current_time + 1) % N;    // 2 % 2 = 0
+            }
+            int new_dist = d[u][current_time] + weight; // new distance d[u][]
 
-// Swap nodes and update positions
-static void swap(QueueNode* a, QueueNode* b, int* positions) {
-    QueueNode temp = *a;
-    *a = *b;
-    *b = temp;
-    positions[a->vertex] = positions[b->vertex];
-    positions[b->vertex] = positions[temp.vertex];
-}
-
-// Bubble up operation for heap
-static void bubble_up(PriorityQueue* pq, int idx) {
-    while (idx > 0) {
-        int parent = (idx - 1) / 2;
-        if (pq->nodes[parent].cost > pq->nodes[idx].cost) {
-            swap(&pq->nodes[parent], &pq->nodes[idx], pq->positions);
-            idx = parent;
-        } else break;
-    }
-}
-
-// Bubble down operation for heap
-static void bubble_down(PriorityQueue* pq, int idx) {
-    int smallest = idx;
-    int left = 2 * idx + 1;
-    int right = 2 * idx + 2;
-
-    if (left < pq->size && pq->nodes[left].cost < pq->nodes[smallest].cost)
-        smallest = left;
-    if (right < pq->size && pq->nodes[right].cost < pq->nodes[smallest].cost)
-        smallest = right;
-
-    if (smallest != idx) {
-        swap(&pq->nodes[idx], &pq->nodes[smallest], pq->positions);
-        bubble_down(pq, smallest);
-    }
-}
-
-// Push to priority queue
-static void pq_push(PriorityQueue* pq, int vertex, int depth, int cost) {
-    int pos = pq->positions[vertex];
-    if (pos != -1) {
-        // Update existing node if new cost is better
-        if (cost < pq->nodes[pos].cost) {
-            pq->nodes[pos].cost = cost;
-            pq->nodes[pos].depth = depth;
-            bubble_up(pq, pos);
-        }
-    } else {
-        // Add new node
-        pos = pq->size++;
-        pq->nodes[pos].vertex = vertex;
-        pq->nodes[pos].depth = depth;
-        pq->nodes[pos].cost = cost;
-        pq->positions[vertex] = pos;
-        bubble_up(pq, pos);
-    }
-}
-
-// Pop from priority queue
-static QueueNode pq_pop(PriorityQueue* pq) {
-    QueueNode min = pq->nodes[0];
-    pq->positions[min.vertex] = -1;
-    pq->nodes[0] = pq->nodes[--pq->size];
-    if (pq->size > 0) {
-        pq->positions[pq->nodes[0].vertex] = 0;
-        bubble_down(pq, 0);
-    }
-    return min;
-}
-
-// Free priority queue
-static void free_pq(PriorityQueue* pq) {
-    free(pq->nodes);
-    free(pq->positions);
-    free(pq);
-}
-
-// Shortest path finding function
-void djk_mul_weights(struct adj_Vertex* adj_list, int source, int target, int vertices, int period) {
-    int* distances = malloc(vertices * sizeof(int));
-    int* parents = malloc(vertices * sizeof(int));
-    bool* visited = calloc(vertices, sizeof(bool));
-    PriorityQueue* pq = create_pq(vertices);
-
-    if (!distances || !parents || !visited || !pq) {
-        perror("Failed to allocate resources for shortest path calculation");
-        free(distances);
-        free(parents);
-        free(visited);
-        if (pq) free_pq(pq);
-        return;
-    }
-
-    // Initialize arrays
-    for (int i = 0; i < vertices; i++) {
-        distances[i] = INF;
-        parents[i] = -1;
-    }
-
-    distances[source] = 0;
-    pq_push(pq, source, 0, 0);
-
-    while (pq->size > 0) {
-        QueueNode current = pq_pop(pq);
-        int u = current.vertex;
-
-        if (visited[u]) continue;
-        visited[u] = true;
-
-        // Process edges
-        struct adj_Edges* edges = adj_list[u].Edges;
-        for (int i = 0; i < adj_list[u].edge_count; i++) {
-            int v = edges[i].name;
-            int weight_index = current.depth % period;
-            int weight = edges[i].weights[weight_index];
-            int new_cost = current.cost + weight;
-
-            if (new_cost < distances[v]) {
-                distances[v] = new_cost;
-                parents[v] = u;
-                pq_push(pq, v, current.depth + 1, new_cost);
+            // Relaxation: Update distance if a shorter path is found
+            if (new_dist < d[v][next_time]) {
+                d[v][next_time] = new_dist;
+                pq[size++] = v;  // Enqueue the neighbor
+                downward_heapify(pq, d, size, 0, next_time);  // Restore heap property
             }
         }
     }
 
-    // Output results
-    if (distances[target] == INF) {
-        printf("No path from %d to %d\n", source, target);
-    } else {
-        printf("Shortest path from %d to %d with total cost %d:\n", source, target, distances[target]);
-
-        // Reconstruct path
-        int* path = malloc(vertices * sizeof(int));
-        if (!path) {
-            perror("Failed to allocate path array");
-            free(distances);
-            free(parents);
-            free(visited);
-            free_pq(pq);
-            return;
+    // Find the shortest path to the target across all time steps
+    int min_distance = INF;
+    for (int t = 0; t < N; t++) {
+        if (d[target][t] < min_distance) {
+            min_distance = d[target][t];
         }
-
-        int path_len = 0;
-        for (int at = target; at != -1; at = parents[at]) {
-            path[path_len++] = at;
-        }
-
-        for (int i = path_len - 1; i >= 0; i--) {
-            printf("%d ", path[i]);
-        }
-        printf("\n");
-
-        free(path);
     }
 
-    // Free resources
-    free(distances);
-    free(parents);
-    free(visited);
-    free_pq(pq);
+    if (min_distance == INF) {
+        printf("No path from %d to %d\n", source, target);
+    } else {
+        printf("Shortest path distance from %d to %d is: %d\n", source, target, min_distance);
+    }
+
+    // Free memory
+    for (int i = 0; i < V; i++) {
+        free(d[i]);
+    }
+    free(d);
+    free(pq);
 }
 
 
 struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* period) {
-    FILE* fol = fopen(filename, "r");
-    if (!fol) {
-        perror("Failed to open file");
+    FILE* file = fopen(filename, "r");
+    if (!file) {
         return NULL;
     }
 
     int num_weights, num_nodes;
-    fscanf(fol, "%d %d", &num_nodes, &num_weights);
+    fscanf(file, "%d %d", &num_nodes, &num_weights);
     *vertices = num_nodes;
     *period = num_weights;
 
     struct adj_Vertex* adj_list = malloc(sizeof(struct adj_Vertex) * num_nodes);
+
     if (!adj_list) {
-        perror("Failed to allocate adjacency list");
-        fclose(fol);
+        fclose(file);
         return NULL;
     }
 
@@ -221,63 +157,36 @@ struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* peri
 
     int line_size = num_weights + 2;
     int* input_buffer = malloc(sizeof(int) * line_size);
-    if (!input_buffer) {
-        perror("Failed to allocate input buffer");
-        free(adj_list);
-        fclose(fol);
-        return NULL;
-    }
-
     int* connected_nodes_count = calloc(num_nodes, sizeof(int));
-    if (!connected_nodes_count) {
-        perror("Failed to allocate node counts");
-        free(input_buffer);
-        free(adj_list);
-        fclose(fol);
-        return NULL;
-    }
-
     int number, count_int = 0;
-    while (fscanf(fol, "%d", &number) == 1) {
+
+    while (fscanf(file, "%d", &number) == 1) {
         input_buffer[count_int++] = number;
         if (count_int == line_size) {
             int src = input_buffer[0];
             int dest = input_buffer[1];
 
             connected_nodes_count[src]++;
-            adj_list[src].Edges = realloc(adj_list[src].Edges, connected_nodes_count[src] * sizeof(struct adj_Edges));
-            if (!adj_list[src].Edges) {
-                perror("Failed to reallocate edges");
-                free(input_buffer);
-                free(connected_nodes_count);
-                free_adj_list(adj_list, num_nodes, num_weights);
-                fclose(fol);
-                return NULL;
+            adj_list[src].Edges = realloc(adj_list[src].Edges, (connected_nodes_count[src] * num_weights) * sizeof(struct adj_Edges));
+            adj_list[src].name = src;
+
+            int new_count = adj_list[src].edge_count + num_weights;
+            int k = 0;
+
+            for (int i = adj_list[src].edge_count; i < new_count; i++) {
+                adj_list[src].Edges[i].name = dest;
+                adj_list[src].Edges[i].weights = input_buffer[k + 2];
+                k++;
             }
 
-            struct adj_Edges* new_edge = &adj_list[src].Edges[connected_nodes_count[src] - 1];
-            new_edge->name = dest;
-            new_edge->weights = malloc(sizeof(int) * num_weights);
-            if (!new_edge->weights) {
-                perror("Failed to allocate weights");
-                free(input_buffer);
-                free(connected_nodes_count);
-                free_adj_list(adj_list, num_nodes, num_weights);
-                fclose(fol);
-                return NULL;
-            }
-
-            for (int i = 0; i < num_weights; i++) {
-                new_edge->weights[i] = input_buffer[2 + i];
-            }
-
-            adj_list[src].edge_count++;
-            count_int = 0;  // Reset input buffer count
+            adj_list[src].edge_count = new_count;
+            adj_list[src].unique_edge_count = new_count / N;
+            count_int = 0;
         }
     }
 
     free(input_buffer);
     free(connected_nodes_count);
-    fclose(fol);
+    fclose(file);
     return adj_list;
 }
