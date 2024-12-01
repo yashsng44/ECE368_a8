@@ -7,20 +7,20 @@
 #define INF 1000000
 int source, target, N, V;
 
-void downward_heapify(int *pq, int **d, int size, int ref, int time) {
+void downward_heapify(int **pq, int **d, int size, int ref, int time) {
     if (size < 1) {
         return;
     }
 
-    int temp = pq[ref];
-    int temp_d = d[temp][time];
+    int *temp = pq[ref];
+    int temp_d = d[temp[0]][time];
     int j;
 
     while ((j = 2 * ref + 1) < size) {
-        if (j + 1 < size && d[pq[j]][time] > d[pq[j + 1]][time]) {
+        if (j + 1 < size && d[pq[j][0]][time] > d[pq[j + 1][0]][time]) {
             j++;
         }
-        if (temp_d <= d[pq[j]][time]) {
+        if (temp_d <= d[pq[j][0]][time]) {
             break;
         }
         pq[ref] = pq[j];
@@ -30,36 +30,31 @@ void downward_heapify(int *pq, int **d, int size, int ref, int time) {
     pq[ref] = temp;
 }
 
-void enQueue(int vertex, int time, int *pq, int *size, int **d) {
-    pq[(*size)++] = vertex;
-    downward_heapify(pq, d, *size, 0, time);
+void enQueue(int vertex, int weight, int **pq, int *size, int **d) {
+    pq[*size] = malloc(2 * sizeof(int));
+    pq[*size][0] = vertex;
+    pq[*size][1] = weight;
+    (*size)++;
+    downward_heapify(pq, d, *size, 0, weight);
 }
 
-int extract_min( struct adj_Vertex * adj_list, int *pq, int **d, int *size, int time) {
+int *extract_min(int **pq, int **d, int *size, int time) {
     if (*size <= 0) {
-        return -1;
+        return NULL;
     }
-    int min = pq[0];
-    pq[0] = pq[--(*size)];
-    for (int edge_idx = 0; edge_idx < adj_list[min].unique_edge_count; edge_idx++) {
-        // Calculate the correct edge index for the previous time step
-        int edge_offset = time * adj_list[min].unique_edge_count + (edge_idx*N);
-        int v = adj_list[min].Edges[edge_offset][0];  // Get destination vertex
-        int weight = adj_list[min].Edges[edge_offset][1];  // Get weight for the previous time step
-        pq[*size++] = v;
-    }
-    downward_heapify(pq, d, *size, 0, time);
+    int *min = pq[0];
+    pq[0] = pq[--(*size)]; // pre-decrement the size? so pq[0] = pq[0]?, do I even care about keeping track of this....tbh...
+    downward_heapify(pq, d, *size, 0, time); // okay yeah downard heapify, move the value with the smallest distance up the list (?) to be evaluated first (regardless they will be)
     return min;
 }
 
-void print_priority_queue(int *pq, int size) {
+void print_priority_queue(int **pq, int size) {
     printf("Priority Queue (size: %d): ", size);
     for (int i = 0; i < size; i++) {
-        printf("%d ", pq[i]);
+        printf("(%d, %d) ", pq[i][0], pq[i][1]);
     }
     printf("\n");
 }
-
 
 void find_shortest_path(struct adj_Vertex *adj_list) {
     if (source == target) {
@@ -68,8 +63,8 @@ void find_shortest_path(struct adj_Vertex *adj_list) {
     }
 
     // Priority queue and distance matrix
-    int *pq = malloc(V * sizeof(int));    // Priority queue
-    int **d = malloc(V * sizeof(int*));  // Distance matrix
+    int **pq = malloc(V * sizeof(int *));  // Priority queue
+    int **d = malloc(V * sizeof(int *));  // Distance matrix
     int *parent = malloc(V * sizeof(int));  // Parent array
     int size = 0;
 
@@ -79,67 +74,50 @@ void find_shortest_path(struct adj_Vertex *adj_list) {
         for (int j = 0; j <= N; j++) {
             d[i][j] = INF;  // Initialize all distances to infinity
         }
-        parent[i] = -1; // Initialize parent array to -1
+        parent[i] = -1;  // Initialize parent array to -1
     }
 
-    d[source][0] = 0; // Distance to source at time 0
-    pq[size++] = source;  // Enqueue the source
-    int time = 0;         // Initialize time
+    d[source][0] = 0;  // Distance to source at time 0
+    enQueue(source, 0, pq, &size, d);  // Enqueue the source with initial weight 0 
+    // nothing to heap just yet, I only added one thing to my priority queue.
 
     while (size > 0) {
-        // Debug: Print distance array
-        printf("Distance Array (rows: vertices, columns: time steps):\n");
-        for (int i = 0; i < V; i++) {
-            printf("Vertex %d: ", i);
-            for (int j = 0; j <= N; j++) {
-                if (d[i][j] == INF) {
-                    printf("INF ");
-                } else {
-                    printf("%d ", d[i][j]);
-                }
+        // get the first value off the pq
+        int *u = extract_min(pq, d, &size, 0);  // Extract min from pr
+        int curr_vertex = u[0];
+        int curr_weight = u[1];
+        free(u);
+
+        printf("Dequeued vertex: (%d, %d)\n", curr_vertex, curr_weight);
+
+        int time_step = curr_weight % N;  // Current time step modulo the period
+        // Process all outgoing edges
+        for (int edge_idx = 0; edge_idx < adj_list[curr_vertex].unique_edge_count; edge_idx++) {
+            int edge_offset = time_step + edge_idx;
+            int v = adj_list[curr_vertex].Edges[edge_offset][0];  // Destination vertex
+            int weight = adj_list[curr_vertex].Edges[edge_offset][1];  // Edge weight
+
+            printf("Processing edge %d -> %d (weight: %d, time_step: %d)\n", curr_vertex, v, weight, time_step);
+
+            int next_time = (time_step + 1) % N;  // Calculate next time step
+            int new_dist = d[curr_vertex][time_step] + weight;
+
+            if (new_dist < d[v][next_time]) {
+                printf("Updating distance of %d at time %d: %d -> %d\n", v, next_time, d[v][next_time], new_dist);
+                d[v][next_time] = new_dist;
+                parent[v] = curr_vertex;
+                enQueue(v, new_dist, pq, &size, d);  // Enqueue the updated vertex
             }
-            printf("\n");
         }
-
-        int u = extract_min(adj_list, pq, d, &size, time);
-        printf("Dequeued vertex: %d at time: %d\n", u, time);
-
-        // Access the previous time step
-        int curr_time = (time == 0) ? 0 : (time - 1) % N;
-
-        // Iterate through edges for the previous time step
-        for (int edge_idx = 0; edge_idx < adj_list[u].unique_edge_count; edge_idx++) {
-            print_priority_queue(pq, size);
-            // Calculate the correct edge index for the previous time step
-            int edge_offset = time * adj_list[u].unique_edge_count + (edge_idx*N);
-            printf("edge_idx: %d, edge_offset: %d\n", edge_idx, edge_offset);
-            int v = adj_list[u].Edges[edge_offset][0];  // Get destination vertex
-            int weight = adj_list[u].Edges[edge_offset][1];  // Get weight for the previous time step
-
-            printf("Processing edge %d -> %d (weight: %d, prev_time: %d)\n", u, v, weight, curr_time);
-
-            // Compute new distance and enqueue
-            int new_dist = d[u][curr_time] + weight;
-            if (new_dist < d[v][curr_time]) {
-                printf("Updating distance of %d at time %d: %d -> %d\n", v, time, d[v][time], new_dist);
-                d[v][curr_time] = new_dist;
-                parent[v] = u;
-                enQueue(v, time, pq, &size, d);  // Enqueue with the current time
-            }
-
-        }
-        time = (curr_time + 1) % N;  // Move to the next time step
     }
 
     // Find the shortest path to the target across all time steps
     int min_distance = INF;
-    int best_time = -1;
+
     for (int t = 0; t <= N; t++) {
         if (d[target][t] < min_distance) {
             min_distance = d[target][t];
-            best_time = t;
         }
-        best_time = best_time;
     }
 
     if (min_distance == INF) {
@@ -162,6 +140,9 @@ void find_shortest_path(struct adj_Vertex *adj_list) {
         free(d[i]);
     }
     free(d);
+    for (int i = 0; i < size; i++) {
+        free(pq[i]);
+    }
     free(pq);
     free(parent);
 }
