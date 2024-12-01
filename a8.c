@@ -5,22 +5,33 @@
 #include "a8.h"
 
 #define INF 1000000
-int source, target, N, V;
 
-void downward_heapify(int **pq, int **d, int size, int ref, int time) {
+void free_adjacency_list(struct adj_Vertex *adj_list, int num_nodes) {
+    for (int i = 0; i < num_nodes; i++) {
+        if (adj_list[i].Edges != NULL) {
+            for (int j = 0; j < adj_list[i].edge_count; j++) {
+                free(adj_list[i].Edges[j]);
+            }
+            free(adj_list[i].Edges);
+        }
+    }
+    free(adj_list);
+}
+
+void downward_heapify(int **pq, int size, int ref) {
     if (size < 1) {
         return;
     }
 
     int *temp = pq[ref];
-    int temp_d = d[temp[0]][time];
+    int temp_weight = temp[2]; // Compare based on weight
     int j;
 
     while ((j = 2 * ref + 1) < size) {
-        if (j + 1 < size && d[pq[j][0]][time] > d[pq[j + 1][0]][time]) {
+        if (j + 1 < size && pq[j][2] > pq[j + 1][2]) {
             j++;
         }
-        if (temp_d <= d[pq[j][0]][time]) {
+        if (temp_weight <= pq[j][2]) {
             break;
         }
         pq[ref] = pq[j];
@@ -30,112 +41,144 @@ void downward_heapify(int **pq, int **d, int size, int ref, int time) {
     pq[ref] = temp;
 }
 
-void enQueue(int vertex, int weight, int **pq, int *size, int **d) {
-    pq[*size] = malloc(2 * sizeof(int));
+void enQueue(int vertex, int weight, int time_step, int **pq, int *size) {
+    pq[*size] = malloc(3 * sizeof(int)); // Now holds 3 values
     pq[*size][0] = vertex;
-    pq[*size][1] = weight;
+    pq[*size][1] = time_step;
+    pq[*size][2] = weight;
     (*size)++;
-    downward_heapify(pq, d, *size, 0, weight);
-}
-
-int *extract_min(int **pq, int **d, int *size, int time) {
-    if (*size <= 0) {
-        return NULL;
-    }
-    int *min = pq[0];
-    pq[0] = pq[--(*size)]; // pre-decrement the size? so pq[0] = pq[0]?, do I even care about keeping track of this....tbh...
-    downward_heapify(pq, d, *size, 0, time); // okay yeah downard heapify, move the value with the smallest distance up the list (?) to be evaluated first (regardless they will be)
-    return min;
 }
 
 void print_priority_queue(int **pq, int size) {
-    printf("Priority Queue (size: %d): ", size);
+    // printf("Priority Queue (size: %d): ", size);
     for (int i = 0; i < size; i++) {
-        printf("(%d, %d) ", pq[i][0], pq[i][1]);
+        // printf("(%d, time_step: %d, weight: %d) ", pq[i][0], pq[i][1], pq[i][2]);
+    }
+    // printf("\n");
+}
+
+
+void print_distance_array(int **d, int rows, int cols) {
+    // printf("Distance Array:\n");
+    for (int i = 0; i < rows; i++) {
+        printf("Vertex %d: ", i);
+        for (int j = 0; j < cols; j++) {
+            if (d[i][j] == INF) {
+                printf("INF ");
+            } else {
+                printf("%d ", d[i][j]);
+            }
+        }
+        printf("\n");
     }
     printf("\n");
 }
 
-void find_shortest_path(struct adj_Vertex *adj_list) {
+void print_visited_array(int *visited, int size) {
+    printf("Visited Array:\n");
+    for (int i = 0; i < size; i++) {
+        printf("Vertex %d: %d\n", i, visited[i]); // Print the value for each vertex
+    }
+}
+
+void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int V, int N) {
     if (source == target) {
-        printf("Shortest distance from %d to %d is: 0\nPath: %d\n", source, target, source);
+        printf("%d %d\n", source, target);
         return;
     }
 
-    // Priority queue and distance matrix
-    int **pq = malloc(V * sizeof(int *));  // Priority queue
+    // Priority queue and distance matrixs
+    int **pq = malloc((V *N) * sizeof(int *));  // Priority queue
     int **d = malloc(V * sizeof(int *));  // Distance matrix
     int *parent = malloc(V * sizeof(int));  // Parent array
+    int *visited = calloc(V, sizeof(int));  // Visited array
     int size = 0;
 
     // Initialize distances and parent array
     for (int i = 0; i < V; i++) {
         d[i] = malloc((N + 1) * sizeof(int));
-        for (int j = 0; j <= N; j++) {
+        for (int j = 0; j < N + 1; j++) {
             d[i][j] = INF;  // Initialize all distances to infinity
         }
         parent[i] = -1;  // Initialize parent array to -1
     }
 
     d[source][0] = 0;  // Distance to source at time 0
-    enQueue(source, 0, pq, &size, d);  // Enqueue the source with initial weight 0 
     // nothing to heap just yet, I only added one thing to my priority queue.
-
+    int time_step = 0; // initialize the current time step outside of the loop
+    enQueue(source, 0, time_step, pq, &size);  // Enqueue the source with initial weight 0 
+    
     while (size > 0) {
         // get the first value off the pq
-        int *u = extract_min(pq, d, &size, 0);  // Extract min from pr
+        int * u = pq[0];
+        pq[0] = pq[--(size)]; // decrease the size of the array, as we dequeued something
+        //downward_heapify(pq, size, 0);
         int curr_vertex = u[0];
-        int curr_weight = u[1];
+        int curr_time_step = u[1];
+        int curr_weight = u[2];
         free(u);
 
-        printf("Dequeued vertex: (%d, %d)\n", curr_vertex, curr_weight);
-
-        int time_step = curr_weight % N;  // Current time step modulo the period
-        // Process all outgoing edges
-        for (int edge_idx = 0; edge_idx < adj_list[curr_vertex].unique_edge_count; edge_idx++) {
-            int edge_offset = time_step + edge_idx;
-            int v = adj_list[curr_vertex].Edges[edge_offset][0];  // Destination vertex
-            int weight = adj_list[curr_vertex].Edges[edge_offset][1];  // Edge weight
-
-            printf("Processing edge %d -> %d (weight: %d, time_step: %d)\n", curr_vertex, v, weight, time_step);
-
-            int next_time = (time_step + 1) % N;  // Calculate next time step
-            int new_dist = d[curr_vertex][time_step] + weight;
-
-            if (new_dist < d[v][next_time]) {
-                printf("Updating distance of %d at time %d: %d -> %d\n", v, next_time, d[v][next_time], new_dist);
-                d[v][next_time] = new_dist;
-                parent[v] = curr_vertex;
-                enQueue(v, new_dist, pq, &size, d);  // Enqueue the updated vertex
-            }
+       // // printf("Dequeued vertex: (%d, %d)\n", curr_vertex, curr_weight);
+        if (curr_weight > d[curr_vertex][curr_time_step]) continue;)  { // if the current distance 
+        //printf("skip: %d, %d\n", curr_vertex, visited[curr_vertex]);
+        continue;
+        } 
+        visited[curr_vertex]++;
+        print_visited_array(visited, V);
+        if (visited[curr_vertex] > V) {
+            printf("Cycle detected involving vertex %d\n", curr_vertex);
+            continue; // Allow exploration of other paths despite the cycle
         }
-    }
-
-    // Find the shortest path to the target across all time steps
-    int min_distance = INF;
-
-    for (int t = 0; t <= N; t++) {
-        if (d[target][t] < min_distance) {
-            min_distance = d[target][t];
-        }
-    }
-
-    if (min_distance == INF) {
-        printf("No path from %d to %d\n", source, target);
-    } else {
-        printf("Shortest path distance from %d to %d is: %d\n", source, target, min_distance);
-
-        // Reconstruct and print the path
-        printf("Path: ");
+        
+        if (curr_vertex == target) {
         int node = target;
+        int * reverse = malloc(V * N * sizeof(int));
+        int top = -1;
         while (node != -1) {
-            printf("%d ", node);
+            reverse[++top] = node;
             node = parent[node];
         }
+        while(top >= 0) {
+            printf("%d ", reverse[top--]);
+        }
         printf("\n");
+        free(reverse);
+        break;
+        }
+        // enqueue connected edges corresponding to the time component
+        int mod_time = curr_time_step % N;  // Current time step modulo the periode
+        // printf("run from %d to %d \n", mod_time, adj_list[curr_vertex].unique_edge_count);
+
+        for (int edge_idx = mod_time; edge_idx < adj_list[curr_vertex].edge_count; edge_idx = edge_idx + N) {
+            int v = adj_list[curr_vertex].Edges[edge_idx][0];  // vertex
+            if (d[v][curr_time_step] != INF) {
+            continue; // Skip if already visited
+            }
+            int weight = adj_list[curr_vertex].Edges[edge_idx][1];  // Edge weight
+            // printf("Adding edge %d -> %d (weight: %d, time_step: %d)\n", curr_vertex, v, weight, time_step);
+            //update the corresponding distances from the source node
+
+            int new_weight = d[curr_vertex][curr_time_step] + weight; // or the existing one?
+
+            // printf("evaluated: %d < %d ?\n", new_weight, d[v][mod_time + 1]);
+            if (!visited[v] && new_weight < d[v][mod_time + 1]) { 
+            d[v][mod_time + 1] = new_weight; // it is simply at *that* time
+            parent[v] = curr_vertex;
+            enQueue(v, new_weight, mod_time + 1, pq, &size); // enqueue the weights
+            }
+        
+        }
+        
+       //print_distance_array(d, V, N + 1);
+        for (int k = (size/2) - 1; k >= 0; k--) {
+        downward_heapify(pq, size, k); // heap with respect to this...
+        }
+
+        //print_priority_queue(pq, size);
+        curr_time_step++;
     }
 
-    // Free memory
+      // Free memory
     for (int i = 0; i < V; i++) {
         free(d[i]);
     }
@@ -145,6 +188,7 @@ void find_shortest_path(struct adj_Vertex *adj_list) {
     }
     free(pq);
     free(parent);
+    free(visited);
 }
 
 
@@ -184,7 +228,15 @@ struct adj_Vertex* build_adjacency_list(char* filename, int* vertices, int* peri
 
             connected_nodes_count[src]++;
             int total_edges = connected_nodes_count[src] * num_weights;
-            adj_list[src].Edges = realloc(adj_list[src].Edges, (total_edges) * sizeof(int));
+            adj_list[src].Edges = realloc(adj_list[src].Edges, (total_edges) * sizeof(int *));
+            if (adj_list[src].Edges == NULL) {
+                // Handle memory allocation failure
+                fprintf(stderr, "Memory reallocation failed.\n");
+                    free(input_buffer);
+                    free(connected_nodes_count);
+                    fclose(file);
+                exit(EXIT_FAILURE);
+            }
             adj_list[src].name = src;
 
             int k = 0;
