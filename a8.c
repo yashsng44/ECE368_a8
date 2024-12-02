@@ -6,6 +6,11 @@
 
 #define INF 1000000
 
+typedef struct min_path {
+    int weight;
+    int * path;
+} min_paths;
+
 void free_adjacency_list(struct adj_Vertex *adj_list, int num_nodes) {
     for (int i = 0; i < num_nodes; i++) {
         if (adj_list[i].Edges != NULL) {
@@ -50,11 +55,11 @@ void enQueue(int vertex, int weight, int time_step, int **pq, int *size) {
 }
 
 void print_priority_queue(int **pq, int size) {
-    // printf("Priority Queue (size: %d): ", size);
+    printf("Priority Queue (size: %d): ", size);
     for (int i = 0; i < size; i++) {
-        // printf("(%d, time_step: %d, weight: %d) ", pq[i][0], pq[i][1], pq[i][2]);
+        printf("(%d, time_step: %d, weight: %d) ", pq[i][0], pq[i][1], pq[i][2]);
     }
-    // printf("\n");
+    printf("\n");
 }
 
 
@@ -81,6 +86,28 @@ void print_visited_array(int *visited, int size) {
     }
 }
 
+void print_path_from_source_to_target(int *parent, int source, int target) {
+    // Max number of nodes in the path
+    int path[1000]; // Adjust size as needed
+    int path_length = 0;
+
+    // Backtrack from target to source
+    int current = target;
+    while (current != -1) {
+        path[path_length++] = current;
+        current = parent[current];
+        // if (current == source) {
+        //     break;
+        // }
+    }
+
+    for (int i = path_length - 1; i >= 0; i--) {
+        printf("%d ", path[i]);
+    }
+    printf("\n");
+}
+
+
 void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int V, int N) {
     if (source == target) {
         printf("%d %d\n", source, target);
@@ -91,12 +118,20 @@ void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int
     int **pq = malloc((V *N) * sizeof(int *));  // Priority queue
     int **d = malloc(V * sizeof(int *));  // Distance matrix
     int *parent = malloc(V * sizeof(int));  // Parent array
-    int *visited = calloc(V, sizeof(int));  // Visited array
+    int ** visited = malloc(V * sizeof(int*));  // Visited array
     int size = 0;
+
+    struct {
+        int weight;
+        int * path;
+        int length;
+    } best_paths[1000]; // Assuming a maximum of 1000 paths
+    int path_count = 0;
 
     // Initialize distances and parent array
     for (int i = 0; i < V; i++) {
         d[i] = malloc((N + 1) * sizeof(int));
+        visited[i] = calloc((N+1), sizeof(int));
         for (int j = 0; j < N + 1; j++) {
             d[i][j] = INF;  // Initialize all distances to infinity
         }
@@ -104,12 +139,9 @@ void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int
     }
 
     d[source][0] = 0;  // Distance to source at time 0
-    // nothing to heap just yet, I only added one thing to my priority queue.
-    int time_step = 0; // initialize the current time step outside of the loop
-    enQueue(source, 0, time_step, pq, &size);  // Enqueue the source with initial weight 0 
+    enQueue(source, 0, 0, pq, &size);  // Enqueue the source with initial weight 0 
     
     while (size > 0) {
-        // get the first value off the pq
         int * u = pq[0];
         pq[0] = pq[--(size)]; // decrease the size of the array, as we dequeued something
         //downward_heapify(pq, size, 0);
@@ -118,53 +150,45 @@ void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int
         int curr_weight = u[2];
         free(u);
 
-       // // printf("Dequeued vertex: (%d, %d)\n", curr_vertex, curr_weight);
-        if (curr_weight > d[curr_vertex][curr_time_step]) continue;)  { // if the current distance 
-        //printf("skip: %d, %d\n", curr_vertex, visited[curr_vertex]);
-        continue;
-        } 
-        visited[curr_vertex]++;
-        print_visited_array(visited, V);
-        if (visited[curr_vertex] > V) {
-            printf("Cycle detected involving vertex %d\n", curr_vertex);
+       // printf("checking: visited[%d][%d]\n", curr_vertex, curr_time_step);
+        if (visited[curr_vertex][curr_time_step]) {
+          //  printf("continued..\n");
             continue; // Allow exploration of other paths despite the cycle
         }
-        
+        visited[curr_vertex][curr_time_step]++;
+
+
         if (curr_vertex == target) {
-        int node = target;
-        int * reverse = malloc(V * N * sizeof(int));
-        int top = -1;
-        while (node != -1) {
-            reverse[++top] = node;
-            node = parent[node];
-        }
-        while(top >= 0) {
-            printf("%d ", reverse[top--]);
-        }
-        printf("\n");
-        free(reverse);
-        break;
-        }
-        // enqueue connected edges corresponding to the time component
-        int mod_time = curr_time_step % N;  // Current time step modulo the periode
-        // printf("run from %d to %d \n", mod_time, adj_list[curr_vertex].unique_edge_count);
-
-        for (int edge_idx = mod_time; edge_idx < adj_list[curr_vertex].edge_count; edge_idx = edge_idx + N) {
-            int v = adj_list[curr_vertex].Edges[edge_idx][0];  // vertex
-            if (d[v][curr_time_step] != INF) {
-            continue; // Skip if already visited
+            // Found a path to the target, store it
+            best_paths[path_count].weight = curr_weight;
+            best_paths[path_count].path = malloc(V * sizeof(int));
+            memcpy(best_paths[path_count].path, parent, V*sizeof(int));
+            for (int l = 0; l < V; l++) {
+                printf("%d ", best_paths[path_count].path[l]);
             }
-            int weight = adj_list[curr_vertex].Edges[edge_idx][1];  // Edge weight
-            // printf("Adding edge %d -> %d (weight: %d, time_step: %d)\n", curr_vertex, v, weight, time_step);
-            //update the corresponding distances from the source node
+            printf("\n");
+            path_count++;
+            continue; // Continue to explore other paths
+        }
 
-            int new_weight = d[curr_vertex][curr_time_step] + weight; // or the existing one?
+        // printf("Distance:\n");
+        // print_distance_array(d, V, N+1);
+        // printf("Visited:\n");
+        // print_distance_array(visited, V, N+1);
+
+        for (int edge_idx = curr_time_step; edge_idx < adj_list[curr_vertex].edge_count; edge_idx = edge_idx + N) {
+            int v = adj_list[curr_vertex].Edges[edge_idx][0];  // vertex
+            int weight = adj_list[curr_vertex].Edges[edge_idx][1];  // Edge weight
+            //update the corresponding distances from the source node
+            
+            int new_weight = curr_weight + weight; // or the existing one?
 
             // printf("evaluated: %d < %d ?\n", new_weight, d[v][mod_time + 1]);
-            if (!visited[v] && new_weight < d[v][mod_time + 1]) { 
-            d[v][mod_time + 1] = new_weight; // it is simply at *that* time
+            if (!visited[v][curr_time_step + 1] && new_weight < d[v][curr_time_step + 1]) { 
+            d[v][curr_time_step + 1] = new_weight; // it is simply at *that* time
             parent[v] = curr_vertex;
-            enQueue(v, new_weight, mod_time + 1, pq, &size); // enqueue the weights
+            //printf("Adding edge %d -> %d (weight: %d, time_step: %d)\n", curr_vertex, v, weight, (curr_time_step + 1) % N);
+            enQueue(v, new_weight, (curr_time_step + 1) % N, pq, &size); // enqueue the weights
             }
         
         }
@@ -173,12 +197,27 @@ void find_shortest_path(struct adj_Vertex *adj_list, int source, int target, int
         for (int k = (size/2) - 1; k >= 0; k--) {
         downward_heapify(pq, size, k); // heap with respect to this...
         }
+        print_priority_queue(pq, size);
 
-        //print_priority_queue(pq, size);
-        curr_time_step++;
     }
 
-      // Free memory
+    // Determine the smallest path
+    int min_weight = INF;
+    int best_path_idx = -1;
+
+    for (int i = 0; i < path_count; i++) {
+        if (best_paths[i].weight < min_weight) {
+            min_weight = best_paths[i].weight;
+            best_path_idx = i;
+        }
+    }
+
+    if (best_path_idx != -1) {
+        print_path_from_source_to_target(best_paths[best_path_idx].path, source, target);
+    } else {
+        printf("No path found from %d to %d\n", source, target);
+    }
+
     for (int i = 0; i < V; i++) {
         free(d[i]);
     }
